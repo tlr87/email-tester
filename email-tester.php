@@ -1,8 +1,8 @@
 <?php
 /**
  * Plugin Name: Email Tester Advanced
- * Description: Test outgoing emails with CC/BCC, HTML preview, and logging.
- * Version: 1.1
+ * Description: Test outgoing emails with CC/BCC, HTML preview, and step-by-step PHPMailer debug output.
+ * Version: 1.2
  * Author: Your Name
  */
 
@@ -29,6 +29,7 @@ function email_tester_advanced_page() {
         <h1>Email Tester Advanced</h1>
         <?php
         if ( isset($_POST['email_tester_send']) && !empty($_POST['email_address']) ) {
+
             $to = sanitize_email($_POST['email_address']);
             $subject = sanitize_text_field($_POST['subject'] ?? 'WordPress Email Test');
             $message = wp_kses_post($_POST['message'] ?? 'This is a test email from your WordPress site.');
@@ -41,24 +42,52 @@ function email_tester_advanced_page() {
             if (!empty($cc)) $headers[] = 'Cc: ' . $cc;
             if (!empty($bcc)) $headers[] = 'Bcc: ' . $bcc;
 
-            // Attempt to send email
+            // Clear previous debug logs
+            delete_transient('email_tester_debug');
+
+            // Hook into PHPMailer to capture debug
+            add_action('phpmailer_init', function($phpmailer){
+                $phpmailer->SMTPDebug = 2; // 1 = commands, 2 = commands + responses
+                $phpmailer->Debugoutput = function($str, $level) {
+                    $logs = get_transient('email_tester_debug') ?: [];
+                    $logs[] = $str;
+                    set_transient('email_tester_debug', $logs, 60);
+                    error_log("WP Mail Debug: " . $str);
+                };
+            });
+
+            // Send email
             $success = wp_mail($to, $subject, $message, $headers);
 
-            // Log for debugging
-            error_log("Email Tester Advanced: To=$to, CC=$cc, BCC=$bcc, Subject=$subject, HTML=" . ($is_html ? 'Yes' : 'No') . ", Success=" . ($success ? 'Yes' : 'No'));
+            // Retrieve debug logs
+            $logs = get_transient('email_tester_debug') ?: [];
+            delete_transient('email_tester_debug');
 
-            // Show result
+            // Show results
             if ($success) {
                 echo '<div style="padding:10px; background-color:#d4edda; color:#155724;">Email successfully sent to ' . esc_html($to) . '</div>';
-                if ($is_html) {
-                    echo '<h2>Email Preview:</h2>';
-                    echo '<div style="padding:10px; border:1px solid #ccc;">' . $message . '</div>';
-                }
             } else {
-                echo '<div style="padding:10px; background-color:#f8d7da; color:#721c24;">Failed to send email. Check your server configuration.</div>';
+                echo '<div style="padding:10px; background-color:#f8d7da; color:#721c24;">Email failed. See debug output below.</div>';
+            }
+
+            // Show HTML preview if applicable
+            if ($is_html) {
+                echo '<h2>Email Preview:</h2>';
+                echo '<div style="padding:10px; border:1px solid #ccc; background:#f9f9f9;">' . $message . '</div>';
+            }
+
+            // Show debug output
+            if (!empty($logs)) {
+                echo '<h2>Debug Output</h2>';
+                echo '<div style="padding:10px; border:1px solid #ccc; max-height:300px; overflow:auto; background:#f9f9f9;">';
+                foreach($logs as $line){
+                    echo esc_html($line) . "<br>";
+                }
+                echo '</div>';
             }
         }
         ?>
+
         <form method="post" action="">
             <table class="form-table">
                 <tr>
