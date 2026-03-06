@@ -4,6 +4,8 @@ Plugin Name: WP Email Debugger
 Description: Send WordPress test emails and receive detailed debug logs.
 Version: 1.1
 Author: RD3
+License: CC-BY-4.0
+License URI: https://creativecommons.org/licenses/by/4.0/
 */
 
 if (!defined('ABSPATH')) exit;
