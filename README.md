@@ -37,12 +37,6 @@
 **Q:** Does it store emails anywhere?  
 **A:** No. It only logs the attempt temporarily and emails the debug log to the admin. No database storage.
 
----
-
-## Screenshots
-
-1. Email Debugger form in WordPress admin.  
-2. Debug log preview after sending a test email.
 
 ---
 
