@@ -1,124 +1,142 @@
 <?php
-/**
- * Plugin Name: Email Tester Advanced
- * Description: Test outgoing emails with CC/BCC, HTML preview, and step-by-step PHPMailer debug output.
- * Version: 1.2
- * Author: Your Name
- */
+/*
+Plugin Name: WP Email Debugger
+Description: Send WordPress test emails and receive detailed debug logs.
+Version: 1.1
+Author: RD3
+*/
 
-if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
+if (!defined('ABSPATH')) exit;
 
-// Add admin menu
-add_action('admin_menu', 'email_tester_advanced_menu');
-function email_tester_advanced_menu() {
+add_action('admin_menu', function () {
     add_menu_page(
-        'Email Tester Advanced',
-        'Email Tester',
+        'Email Debugger',
+        'Email Debugger',
         'manage_options',
-        'email-tester-advanced',
-        'email_tester_advanced_page',
-        'dashicons-email',
-        90
+        'wp-email-debugger',
+        'wp_email_debugger_page'
     );
-}
+});
 
-// Admin page content
-function email_tester_advanced_page() {
-    ?>
-    <div class="wrap">
-        <h1>Email Tester Advanced</h1>
-        <?php
-        if ( isset($_POST['email_tester_send']) && !empty($_POST['email_address']) ) {
+function wp_email_debugger_page() {
 
-            $to = sanitize_email($_POST['email_address']);
-            $subject = sanitize_text_field($_POST['subject'] ?? 'WordPress Email Test');
-            $message = wp_kses_post($_POST['message'] ?? 'This is a test email from your WordPress site.');
-            $cc = sanitize_text_field($_POST['cc'] ?? '');
-            $bcc = sanitize_text_field($_POST['bcc'] ?? '');
-            $is_html = isset($_POST['is_html']) ? true : false;
+    $log = '';
 
-            $headers = [];
-            if ($is_html) $headers[] = 'Content-Type: text/html; charset=UTF-8';
-            if (!empty($cc)) $headers[] = 'Cc: ' . $cc;
-            if (!empty($bcc)) $headers[] = 'Bcc: ' . $bcc;
+    if (isset($_POST['send_test'])) {
 
-            // Clear previous debug logs
-            delete_transient('email_tester_debug');
+        $to = sanitize_text_field($_POST['to']);
+        $cc = sanitize_text_field($_POST['cc']);
+        $bcc = sanitize_text_field($_POST['bcc']);
+        $subject = sanitize_text_field($_POST['subject']);
+        $message = wp_kses_post($_POST['message']);
+        $html = isset($_POST['html']);
 
-            // Hook into PHPMailer to capture debug
-            add_action('phpmailer_init', function($phpmailer){
-                $phpmailer->SMTPDebug = 2; // 1 = commands, 2 = commands + responses
-                $phpmailer->Debugoutput = function($str, $level) {
-                    $logs = get_transient('email_tester_debug') ?: [];
-                    $logs[] = $str;
-                    set_transient('email_tester_debug', $logs, 60);
-                    error_log("WP Mail Debug: " . $str);
-                };
-            });
+        $headers = [];
 
-            // Send email
-            $success = wp_mail($to, $subject, $message, $headers);
+        $headers[] = 'From: WordPress <wordpress@' . $_SERVER['SERVER_NAME'] . '>';
 
-            // Retrieve debug logs
-            $logs = get_transient('email_tester_debug') ?: [];
-            delete_transient('email_tester_debug');
+        if ($cc) $headers[] = 'Cc: ' . $cc;
+        if ($bcc) $headers[] = 'Bcc: ' . $bcc;
 
-            // Show results
-            if ($success) {
-                echo '<div style="padding:10px; background-color:#d4edda; color:#155724;">Email successfully sent to ' . esc_html($to) . '</div>';
-            } else {
-                echo '<div style="padding:10px; background-color:#f8d7da; color:#721c24;">Email failed. See debug output below.</div>';
-            }
-
-            // Show HTML preview if applicable
-            if ($is_html) {
-                echo '<h2>Email Preview:</h2>';
-                echo '<div style="padding:10px; border:1px solid #ccc; background:#f9f9f9;">' . $message . '</div>';
-            }
-
-            // Show debug output
-            if (!empty($logs)) {
-                echo '<h2>Debug Output</h2>';
-                echo '<div style="padding:10px; border:1px solid #ccc; max-height:300px; overflow:auto; background:#f9f9f9;">';
-                foreach($logs as $line){
-                    echo esc_html($line) . "<br>";
-                }
-                echo '</div>';
-            }
+        if ($html) {
+            $headers[] = 'Content-Type: text/html; charset=UTF-8';
         }
-        ?>
 
-        <form method="post" action="">
+        $log .= "Sending with mail()\n";
+        $log .= "Sendmail path: " . ini_get('sendmail_path') . "\n";
+        $log .= "Envelope sender: " . ini_get('sendmail_from') . "\n";
+        $log .= "To: $to\n";
+        $log .= "CC: $cc\n";
+        $log .= "BCC: $bcc\n";
+        $log .= "Subject: $subject\n";
+        $log .= "Headers:\n" . implode("\n", $headers) . "\n";
+
+        error_log("WP Email Debugger Attempt:\n" . $log);
+
+        $result = wp_mail($to, $subject, $message, $headers);
+
+        $log .= "\nResult: " . ($result ? "true" : "false") . "\n";
+
+        error_log("WP Email Debugger Result: " . ($result ? "true" : "false"));
+
+        // Send the log to admin email
+        $admin_email = get_option('admin_email');
+
+        wp_mail(
+            $admin_email,
+            "WordPress Email Debug Log",
+            nl2br($log),
+            ['Content-Type: text/html; charset=UTF-8']
+        );
+    }
+
+    ?>
+
+    <div class="wrap">
+        <h1>Email Debugger</h1>
+
+        <form method="post">
+
             <table class="form-table">
+
                 <tr>
-                    <th><label for="email_address">To (Email Address)</label></th>
-                    <td><input name="email_address" type="email" id="email_address" class="regular-text" required></td>
+                    <th>To</th>
+                    <td><input type="email" name="to" class="regular-text" required></td>
                 </tr>
+
                 <tr>
-                    <th><label for="subject">Subject</label></th>
-                    <td><input name="subject" type="text" id="subject" class="regular-text" value="WordPress Email Test"></td>
+                    <th>CC</th>
+                    <td><input type="text" name="cc" class="regular-text"></td>
                 </tr>
+
                 <tr>
-                    <th><label for="message">Message</label></th>
-                    <td><textarea name="message" id="message" rows="8" class="large-text">This is a test email from your WordPress site.</textarea></td>
+                    <th>BCC</th>
+                    <td><input type="text" name="bcc" class="regular-text"></td>
                 </tr>
+
                 <tr>
-                    <th><label for="cc">CC</label></th>
-                    <td><input name="cc" type="text" id="cc" class="regular-text" placeholder="Optional, comma separated"></td>
+                    <th>Subject</th>
+                    <td><input type="text" name="subject" class="regular-text" value="WordPress Email Test"></td>
                 </tr>
+
                 <tr>
-                    <th><label for="bcc">BCC</label></th>
-                    <td><input name="bcc" type="text" id="bcc" class="regular-text" placeholder="Optional, comma separated"></td>
+                    <th>Message</th>
+                    <td>
+                        <textarea name="message" rows="6" class="large-text">
+This is a WordPress test email.
+                        </textarea>
+                    </td>
                 </tr>
+
                 <tr>
                     <th>HTML Email</th>
-                    <td><label><input type="checkbox" name="is_html" value="1"> Send as HTML</label></td>
+                    <td>
+                        <label>
+                            <input type="checkbox" name="html">
+                            Send as HTML
+                        </label>
+                    </td>
                 </tr>
+
             </table>
-            <p class="submit">
-                <input type="submit" name="email_tester_send" id="email_tester_send" class="button button-primary" value="Send Test Email">
+
+            <p>
+                <input type="submit" name="send_test" class="button button-primary" value="Send Test Email">
             </p>
+
         </form>
+
+        <?php if (!empty($log)) : ?>
+
+            <h2>Email Log</h2>
+
+            <pre style="background:#000;color:#0f0;padding:20px;">
+<?php echo esc_html($log); ?>
+            </pre>
+
+        <?php endif; ?>
+
     </div>
+
     <?php
 }
