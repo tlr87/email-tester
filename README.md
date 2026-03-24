@@ -25,6 +25,34 @@
 6. Click **Send Test Email** to send and receive the debug log.
 
 ---
+## ✉️ Core Features
+Email format validation (checks if an email is syntactically correct)
+Domain validation (checks if the domain exists)
+MX record checking (ensures the domain can receive emails)
+SMTP verification (tests if the mailbox actually accepts mail)
+Disposable email detection (blocks temporary email services)
+Free vs business email detection
+
+## ⚙️ New in the Release
+Performance improvements (faster validation or batch processing)
+Better error handling and reporting
+API improvements (simpler usage, better typing, etc.)
+New utilities or helper functions
+Bug fixes and stability improvements
+
+## 🚀 Use Cases
+Signup form validation
+Preventing fake or spam accounts
+Email marketing list cleaning
+Improving email deliverability
+Backend validation for apps and SaaS products
+
+##📦 Technical Improvements (typical)
+Optimized builds (bundling, smaller package size)
+TypeScript support or improved typings
+Better test coverage
+Caching and concurrency improvements
+Updated dependencies
 
 ## Frequently Asked Questions
 
